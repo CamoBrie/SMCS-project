@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Dijkstra where
 
@@ -64,7 +63,9 @@ dijkstra start end graph = (initialState start graph $ \g s -> go g s) !?? end
 -- | Perform one step of Dijkstra's algorithm.
 step :: Graph -> DijkstraState n -> DijkstraState n
 step g s = traceShow s $ case H.extractMin (nodeQueue s) of
+  Just ((Infinity, _), _) -> s
   Just ((Dist _, node), q) -> foldr (checkNeighbor node) (DijkstraState (node : visitedSet s) (distanceMap s) q) (neighbors node g)
+  Nothing -> s
 
 -- | Update the state based on a neighbor of the current node.
 checkNeighbor :: String -> (String, Int) -> DijkstraState n -> DijkstraState n
