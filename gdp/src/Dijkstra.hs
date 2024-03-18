@@ -6,8 +6,10 @@ module Dijkstra where
 
 -- https://mmhaskell.com/blog/2022/8/22/dijkstras-algorithm-in-haskell
 
-import Debug.Trace (traceShow)
+import Data.Refined
+import Logic.Propositional
 import MinHeap as H
+import Theory.Named
 
 type HashMap k v = [(k, v)]
 
@@ -42,13 +44,13 @@ newtype Graph = Graph
 data DijkstraState n = DijkstraState
   { visitedSet :: HashSet String,
     distanceMap :: HashMap String (Distance Int),
-    nodeQueue :: H.Sized n (MinHeap (Distance Int) String)
+    nodeQueue :: MinHeap (Distance Int) String
   }
   deriving (Show)
 
 -- | Run Dijkstra's algorithm on a graph, starting from a given node.
 initialState :: String -> Graph -> (forall n. Graph -> DijkstraState n -> r) -> r
-initialState start g f = H.fromList [(Dist 0, start)] $ \h -> f g $ DijkstraState [] [(start, Dist 0)] h
+initialState start g f = f g $ DijkstraState [] [(start, Dist 0)] $ H.fromList [(Dist 0, start)]
 
 -- | Run Dijkstra's algorithm on a graph, starting from a given node.
 -- The result is a map of distances from the start node to all other nodes.
@@ -62,10 +64,18 @@ dijkstra start end graph = (initialState start graph $ \g s -> go g s) !?? end
 
 -- | Perform one step of Dijkstra's algorithm.
 step :: Graph -> DijkstraState n -> DijkstraState n
-step g s = traceShow s $ case H.extractMin (nodeQueue s) of
-  Just ((Infinity, _), _) -> s
-  Just ((Dist _, node), q) -> foldr (checkNeighbor node) (DijkstraState (node : visitedSet s) (distanceMap s) q) (neighbors node g)
+step g s = name (nodeQueue s) $ \mh -> case do
+  -- setup proof of non-empty heap and valid minheap
+  (sizeProof) <- H.classifyHeapNotEmpty mh
+  (validProof) <- H.isValidMinHeap mh
+  (((d, node)), q) <- H.extractMin (mh ... (sizeProof `introAnd` validProof))
+
+  -- run the step
+  return $ case d of
+    Infinity -> s
+    Dist _ -> foldr (checkNeighbor node) (DijkstraState (node : visitedSet s) (distanceMap s) q) (neighbors node g) of
   Nothing -> s
+  Just s' -> s'
 
 -- | Update the state based on a neighbor of the current node.
 checkNeighbor :: String -> (String, Int) -> DijkstraState n -> DijkstraState n

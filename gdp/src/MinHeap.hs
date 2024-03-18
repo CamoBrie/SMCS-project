@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -6,22 +7,15 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
-module MinHeap
-  ( MinHeap,
-    Sized,
-    fromList,
-    insert,
-    merge,
-    extractMin,
-    isEmpty,
-  )
-where
+module MinHeap (fromList, insert, merge, extractMin, MinHeap (..), isEmpty, classifyHeapNotEmpty, isValidMinHeap) where
 
-import GHC.TypeLits
-
---- GDP Stuff
-data Sized (n :: Nat) a = Sized a
+import Data.Refined (type (:::))
+import Data.The
+import Logic.Proof (Proof, axiom)
+import Logic.Propositional (introAnd, type (/\))
+import Theory.Named (name2, type (~~))
 
 --- MinHeap Stuff
 data MinHeap k a
@@ -32,57 +26,62 @@ instance (Show a, Show k) => Show (MinHeap k a) where
   show Leaf = "Leaf"
   show (Node a l r k) = concat ["Node ", show a, " ", show k, " (", show l, ") (", show r, ")"]
 
-instance (Show (MinHeap k a)) => Show (Sized n (MinHeap k a)) where
-  show (Sized h) = show h
-
 -- | Create a new heap from a list of key-value pairs.
--- GDP invariants:
--- 1. The keys in the heap are sorted
--- 2. The size of the heap is equal to the length of the list
--- Create a new heap with a known size.
-fromList :: forall k a r. (Ord k) => [(k, a)] -> (forall n. Sized n (MinHeap k a) -> r) -> r
-fromList xs k = k (Sized (fromList' xs) :: Sized n (MinHeap k a))
-
-fromList' :: (Ord k) => [(k, a)] -> MinHeap k a
-fromList' = foldr insert' Leaf
+fromList :: (Ord k) => [(k, a)] -> MinHeap k a
+fromList = foldr insert Leaf
 
 -- | Insert a new key-value pair into the heap.
--- GDP invariants:
--- 1. The keys in the heap are sorted
--- 2. The size of the heap is increased by 1
-insert :: (Ord k) => (k, a) -> Sized n (MinHeap k a) -> Sized (n) (MinHeap k a)
-insert (k, a) (Sized h) = Sized (insert' (k, a) h)
-
-insert' :: (Ord k) => (k, a) -> MinHeap k a -> MinHeap k a
-insert' (k, a) h = merge' h (Node a Leaf Leaf k)
+insert :: (Ord k) => (k, a) -> MinHeap k a -> MinHeap k a
+insert (k, a) h = merge h (Node a Leaf Leaf k)
 
 -- | Merge two heaps into one.
--- GDP invariants:
--- 1. The keys in the heap are sorted
--- 2. The size of the heap is increased by the sum of the sizes of the input heaps
-merge :: (Ord k) => Sized n (MinHeap k a) -> Sized m (MinHeap k a) -> Sized (n + m) (MinHeap k a)
-merge (Sized h1') (Sized h2') = Sized (merge' h1' h2')
-
-merge' :: (Ord k) => MinHeap k a -> MinHeap k a -> MinHeap k a
-merge' h Leaf = h
-merge' Leaf h = h
-merge' h1@(Node a1 l1 r1 k1) h2@(Node a2 l2 r2 k2)
-  | k1 <= k2 = Node a1 (merge' h2 r1) l1 k1
-  | otherwise = Node a2 (merge' h1 r2) l2 k2
+merge :: (Ord k) => MinHeap k a -> MinHeap k a -> MinHeap k a
+merge h Leaf = h
+merge Leaf h = h
+merge h1@(Node a1 l1 r1 k1) h2@(Node a2 l2 r2 k2)
+  | k1 <= k2 = Node a1 (merge h2 r1) l1 k1
+  | otherwise = Node a2 (merge h1 r2) l2 k2
 
 -- | Extract the minimum key-value pair from the heap.
--- GDP invariants:
--- 1. The keys in the heap are sorted
--- 2. The size of the heap is reduced by 1
-extractMin :: (Ord k) => Sized (n) (MinHeap k a) -> Maybe ((k, a), Sized n (MinHeap k a))
-extractMin (Sized h) = case extractMin' h of
-  Nothing -> Nothing
-  Just (x, h') -> Just (x, Sized h')
+-- Preconditions:
+-- 1. The heap is not empty
+-- 2. The heap is a valid min-heap
+extractMin :: (Ord k) => (MinHeap k a ~~ h ::: IsNotEmpty h /\ IsValidMinHeap h) -> Maybe ((k, a), MinHeap k a)
+extractMin (The (Node a l r k)) = Just ((k, a), merge l r)
+extractMin _ = Nothing
 
-extractMin' :: (Ord k) => MinHeap k a -> Maybe ((k, a), MinHeap k a)
-extractMin' Leaf = Nothing
-extractMin' (Node a l r k) = Just ((k, a), merge' l r)
-
-isEmpty :: Sized n (MinHeap k a) -> Bool
-isEmpty (Sized Leaf) = True
+-- | Check if the heap is empty.
+isEmpty :: MinHeap k a -> Bool
+isEmpty Leaf = True
 isEmpty _ = False
+
+--- GDP Stuff
+data IsNotEmpty h
+
+-- | Classify the size of the heap.
+
+classifyHeapNotEmpty :: (MinHeap k a ~~ h) -> Maybe (Proof (IsNotEmpty h))
+classifyHeapNotEmpty (The Leaf) = Nothing
+classifyHeapNotEmpty _ = Just $ axiom
+
+data IsValidMinHeap h
+
+data SmallerThan k h
+
+isValidMinHeap :: forall k a h. (Ord k) => (MinHeap k a ~~ h) -> Maybe (Proof (IsValidMinHeap h))
+isValidMinHeap (The Leaf) = Just axiom
+isValidMinHeap (The (Node _ l r k)) = name2 l r $ \l' r' -> do
+  pl <- isValidMinHeap l'
+  pr <- isValidMinHeap r'
+  psl <- smallerThan k l'
+  psr <- smallerThan k r'
+  return $ validSub $ pl `introAnd` pr `introAnd` psl `introAnd` psr
+  where
+    validSub :: Proof (IsValidMinHeap l' /\ IsValidMinHeap r' /\ SmallerThan k l' /\ SmallerThan k r') -> Proof (IsValidMinHeap h)
+    validSub _ = axiom
+
+    smallerThan :: (Ord k) => k -> (MinHeap k a ~~ l) -> Maybe (Proof (SmallerThan k l))
+    smallerThan _ (The Leaf) = Just axiom
+    smallerThan k' (The (Node _ _ _ k''))
+      | k' <= k'' = Just axiom
+      | otherwise = Nothing
