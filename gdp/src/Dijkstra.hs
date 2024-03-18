@@ -8,7 +8,6 @@ module Dijkstra where
 -- https://mmhaskell.com/blog/2022/8/22/dijkstras-algorithm-in-haskell
 
 import Debug.Trace (traceShow)
-import GHC.TypeLits (type (+))
 import MinHeap as H
 
 type HashMap k v = [(k, v)]
