@@ -4,17 +4,18 @@
 
 module Dijkstra where
 
--- https://mmhaskell.com/blog/2022/8/22/dijkstras-algorithm-in-haskell
-
 import Data.Refined
 import Logic.Propositional
 import MinHeap as H
 import Theory.Named
 
+-- | A HashMap is a list of key-value pairs.
 type HashMap k v = [(k, v)]
 
+-- | A HashSet is a list of elements.
 type HashSet a = [a]
 
+-- | distance is either a number or infinity.
 data Distance a = Dist a | Infinity
   deriving (Show, Eq)
 
@@ -24,23 +25,28 @@ instance (Ord a) => Ord (Distance a) where
   Dist _ <= Infinity = True
   Dist x <= Dist y = x <= y
 
+-- | Add two distances together, returning Infinity if either is Infinity.
 addDist :: (Num a) => Distance a -> Distance a -> Distance a
 addDist (Dist x) (Dist y) = Dist (x + y)
 addDist _ _ = Infinity
 
+-- | Get the neighbors of a node in a graph.
 neighbors :: String -> Graph -> [(String, Int)]
 neighbors node g = case lookup node (edges g) of
   Just x -> x
   Nothing -> []
 
+-- | Get the value of a key in a map, or Infinity if the key is not present.
 (!??) :: (Eq k) => HashMap k (Distance d) -> k -> Distance d
 (!??) m key = case (lookup key m) of
   Just x -> x
   Nothing -> Infinity
 
+-- | A graph is a map from nodes to their neighbors.
 newtype Graph = Graph
   {edges :: HashMap String [(String, Int)]}
 
+-- | The state of Dijkstra's algorithm.
 data DijkstraState n = DijkstraState
   { visitedSet :: HashSet String,
     distanceMap :: HashMap String (Distance Int),
@@ -70,7 +76,7 @@ step g s = name (nodeQueue s) $ \mh -> case do
   -- setup proof of non-empty heap and valid minheap
   (sizeProof) <- H.classifyHeapNotEmpty mh
   (validProof) <- H.isValidMinHeap mh
-  (((d, node)), q) <- H.extractMin (mh ... (sizeProof `introAnd` validProof))
+  let (((d, node)), q) = H.extractMin (mh ... (sizeProof `introAnd` validProof))
 
   -- run the step
   return $ case d of

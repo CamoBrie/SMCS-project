@@ -22,10 +22,7 @@ import Theory.Named
 data MinHeap k a
   = Leaf
   | Node a (MinHeap k a) (MinHeap k a) k
-
-instance (Show a, Show k) => Show (MinHeap k a) where
-  show Leaf = "Leaf"
-  show (Node a l r k) = concat ["Node ", show a, " ", show k, " (", show l, ") (", show r, ")"]
+  deriving (Show)
 
 -- | Create a new heap from a list of key-value pairs.
 fromList :: (Ord k) => [(k, a)] -> Maybe (MinHeap k a)
@@ -65,14 +62,13 @@ merge h1@(The (Node a1 l1 r1 k1)) h2@(The (Node a2 l2 r2 k2))
 -- Preconditions:
 -- 1. The heap is not empty
 -- 2. The heap is a valid min-heap
-extractMin :: (Ord k) => (MinHeap k a ~~ h ::: IsNotEmpty h /\ IsValidMinHeap h) -> Maybe ((k, a), MinHeap k a)
+extractMin :: (Ord k) => (MinHeap k a ~~ h ::: IsNotEmpty h /\ IsValidMinHeap h) -> ((k, a), MinHeap k a)
 extractMin (The (Node a l r k)) = name2 l r $ \l' r' -> case do
   pl <- isValidMinHeap l'
   pr <- isValidMinHeap r'
   (merge (l' ... pl) (r' ... pr)) of
-  Just h -> Just ((k, a), h)
-  Nothing -> Nothing
-extractMin _ = Nothing
+  Just h -> ((k, a), h)
+  Nothing -> error "impossible" -- merge should always return a valid min-heap, if both inputs are valid min-heaps
 
 -- | Check if the heap is empty.
 isEmpty :: MinHeap k a -> Bool
