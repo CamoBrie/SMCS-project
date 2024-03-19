@@ -50,7 +50,9 @@ data DijkstraState n = DijkstraState
 
 -- | Run Dijkstra's algorithm on a graph, starting from a given node.
 initialState :: String -> Graph -> (forall n. Graph -> DijkstraState n -> r) -> r
-initialState start g f = f g $ DijkstraState [] [(start, Dist 0)] $ H.fromList [(Dist 0, start)]
+initialState start g f = case H.fromList [(Dist 0, start)] of
+  Just q -> f g $ DijkstraState [] [(start, Dist 0)] $ q
+  Nothing -> error "Invalid initial state"
 
 -- | Run Dijkstra's algorithm on a graph, starting from a given node.
 -- The result is a map of distances from the start node to all other nodes.
@@ -81,11 +83,15 @@ step g s = name (nodeQueue s) $ \mh -> case do
 checkNeighbor :: String -> (String, Int) -> DijkstraState n -> DijkstraState n
 checkNeighbor node (neighbor, weight) s
   | neighbor `elem` visitedSet s = s
-  | otherwise =
-      let newDist = addDist (Dist weight) (distanceMap s !?? node)
-       in case newDist < (distanceMap s !?? neighbor) of
-            True -> DijkstraState (visitedSet s) ((neighbor, newDist) : distanceMap s) (H.insert (newDist, neighbor) (nodeQueue s))
-            False -> s
+  | newDist < (distanceMap s !?? neighbor) = name (nodeQueue s) $ \nq -> case do
+      proof <- H.isValidMinHeap nq
+      rq <- H.insert (newDist, neighbor) (nq ... proof)
+      return $ DijkstraState (visitedSet s) ((neighbor, newDist) : distanceMap s) rq of
+      Just s' -> s'
+      Nothing -> s
+  | otherwise = s
+  where
+    newDist = addDist (Dist weight) (distanceMap s !?? node)
 
 -- example graph
 exampleGraph :: Graph

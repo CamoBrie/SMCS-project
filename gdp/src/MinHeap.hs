@@ -11,11 +11,12 @@
 
 module MinHeap (fromList, insert, merge, extractMin, MinHeap (..), isEmpty, classifyHeapNotEmpty, isValidMinHeap) where
 
-import Data.Refined (type (:::))
+import Data.Foldable
+import Data.Refined
 import Data.The
-import Logic.Proof (Proof, axiom)
-import Logic.Propositional (introAnd, type (/\))
-import Theory.Named (name2, type (~~))
+import Logic.Proof
+import Logic.Propositional
+import Theory.Named
 
 --- MinHeap Stuff
 data MinHeap k a
@@ -27,27 +28,50 @@ instance (Show a, Show k) => Show (MinHeap k a) where
   show (Node a l r k) = concat ["Node ", show a, " ", show k, " (", show l, ") (", show r, ")"]
 
 -- | Create a new heap from a list of key-value pairs.
-fromList :: (Ord k) => [(k, a)] -> MinHeap k a
-fromList = foldr insert Leaf
+fromList :: (Ord k) => [(k, a)] -> Maybe (MinHeap k a)
+fromList = foldrM f Leaf
+  where
+    f :: (Ord k) => (k, a) -> (MinHeap k a) -> Maybe (MinHeap k a)
+    f v h = name h $ \h' -> do
+      proof <- isValidMinHeap h'
+      insert v (h' ... proof)
 
 -- | Insert a new key-value pair into the heap.
-insert :: (Ord k) => (k, a) -> MinHeap k a -> MinHeap k a
-insert (k, a) h = merge h (Node a Leaf Leaf k)
+-- Preconditions:
+-- 1. The heap is a valid min-heap
+insert :: (Ord k) => (k, a) -> (MinHeap k a ~~ h ::: IsValidMinHeap h) -> Maybe (MinHeap k a)
+insert (k, a) h = name (Node a Leaf Leaf k) $ \h' -> do
+  p <- isValidMinHeap h'
+  mr <- merge (h' ... p) h
+  Just $ mr
 
 -- | Merge two heaps into one.
-merge :: (Ord k) => MinHeap k a -> MinHeap k a -> MinHeap k a
-merge h Leaf = h
-merge Leaf h = h
-merge h1@(Node a1 l1 r1 k1) h2@(Node a2 l2 r2 k2)
-  | k1 <= k2 = Node a1 (merge h2 r1) l1 k1
-  | otherwise = Node a2 (merge h1 r2) l2 k2
+-- Preconditions:
+-- 1. Both heaps are valid min-heaps
+merge :: (Ord k) => (MinHeap k a ~~ h1 ::: IsValidMinHeap h1) -> (MinHeap k a ~~ h2 ::: IsValidMinHeap h2) -> Maybe (MinHeap k a)
+merge (The h) (The Leaf) = Just h
+merge (The Leaf) (The h) = Just h
+merge h1@(The (Node a1 l1 r1 k1)) h2@(The (Node a2 l2 r2 k2))
+  | k1 <= k2 = name r1 $ \r1' -> do
+      p <- isValidMinHeap r1'
+      mr <- merge (r1' ... p) h2
+      Just $ Node a1 l1 mr k1
+  | otherwise = name r2 $ \r2' -> do
+      p <- isValidMinHeap r2'
+      mr <- merge h1 (r2' ... p)
+      Just $ Node a2 l2 mr k2
 
 -- | Extract the minimum key-value pair from the heap.
 -- Preconditions:
 -- 1. The heap is not empty
 -- 2. The heap is a valid min-heap
 extractMin :: (Ord k) => (MinHeap k a ~~ h ::: IsNotEmpty h /\ IsValidMinHeap h) -> Maybe ((k, a), MinHeap k a)
-extractMin (The (Node a l r k)) = Just ((k, a), merge l r)
+extractMin (The (Node a l r k)) = name2 l r $ \l' r' -> case do
+  pl <- isValidMinHeap l'
+  pr <- isValidMinHeap r'
+  (merge (l' ... pl) (r' ... pr)) of
+  Just h -> Just ((k, a), h)
+  Nothing -> Nothing
 extractMin _ = Nothing
 
 -- | Check if the heap is empty.
@@ -59,7 +83,6 @@ isEmpty _ = False
 data IsNotEmpty h
 
 -- | Classify the size of the heap.
-
 classifyHeapNotEmpty :: (MinHeap k a ~~ h) -> Maybe (Proof (IsNotEmpty h))
 classifyHeapNotEmpty (The Leaf) = Nothing
 classifyHeapNotEmpty _ = Just $ axiom
