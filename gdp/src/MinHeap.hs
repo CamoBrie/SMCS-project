@@ -9,14 +9,14 @@
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
-module MinHeap (fromList, insert, merge, extractMin, MinHeap (..), isEmpty, classifyHeapNotEmpty, isValidMinHeap) where
+module MinHeap (fromList, insert, merge, extractMin, MinHeap, isEmpty, classifyHeapNotEmpty, isValidMinHeap) where
 
-import Data.Foldable
-import Data.Refined
+import Data.Foldable (foldrM)
+import Data.Refined ((...), type (:::))
 import Data.The
-import Logic.Proof
-import Logic.Propositional
-import Theory.Named
+import Logic.Proof (Proof, axiom)
+import Logic.Propositional (introAnd, type (/\))
+import Theory.Named (name, name2, type (~~))
 
 --- MinHeap Stuff
 data MinHeap k a

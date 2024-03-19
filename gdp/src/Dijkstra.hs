@@ -1,13 +1,24 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeOperators #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
-module Dijkstra where
+module Dijkstra (Graph (..), dijkstra, classifyDistancePositiveGraph, classifyGraph, classifyNodeInGraph) where
 
-import Data.Refined
-import Logic.Propositional
+import Data.Refined ((...), type (:::))
+import Data.The
+import Logic.Proof (Proof, axiom)
+import Logic.Propositional (introAnd, type (/\))
 import MinHeap as H
-import Theory.Named
+  ( MinHeap,
+    classifyHeapNotEmpty,
+    extractMin,
+    fromList,
+    insert,
+    isEmpty,
+    isValidMinHeap,
+  )
+import Theory.Named (name, name2, type (~~))
 
 -- | A HashMap is a list of key-value pairs.
 type HashMap k v = [(k, v)]
@@ -31,8 +42,11 @@ addDist (Dist x) (Dist y) = Dist (x + y)
 addDist _ _ = Infinity
 
 -- | Get the neighbors of a node in a graph.
-neighbors :: String -> Graph -> [(String, Int)]
-neighbors node g = case lookup node (edges g) of
+-- Preconditions:
+-- 1. The node is in the graph
+-- 2. The graph is valid
+neighbors :: (String ~~ s1 ::: NodeInGraph s1 g) -> (Graph ~~ g ::: IsValidGraph g) -> [(String, Int)]
+neighbors (The node) (The g) = case lookup node (edges g) of
   Just x -> x
   Nothing -> []
 
@@ -54,34 +68,51 @@ data DijkstraState n = DijkstraState
   }
   deriving (Show)
 
--- | Run Dijkstra's algorithm on a graph, starting from a given node.
-initialState :: String -> Graph -> (forall n. Graph -> DijkstraState n -> r) -> r
-initialState start g f = case H.fromList [(Dist 0, start)] of
+-- | Initialize the state of Dijkstra's algorithm.
+-- Preconditions:
+-- 1. The start node is in the graph
+-- 2. The graph is valid
+-- 3. The graph has positive distances
+initialState :: (String ~~ s1 ::: NodeInGraph s1 g) -> (Graph ~~ g ::: IsValidGraph g /\ DistancePositiveGraph g) -> (forall n. (Graph ~~ g ::: IsValidGraph g /\ DistancePositiveGraph g) -> DijkstraState n -> r) -> r
+initialState (The start) g f = case H.fromList [(Dist 0, start)] of
   Just q -> f g $ DijkstraState [] [(start, Dist 0)] $ q
   Nothing -> error "Invalid initial state"
 
 -- | Run Dijkstra's algorithm on a graph, starting from a given node.
 -- The result is a map of distances from the start node to all other nodes.
-dijkstra :: String -> String -> Graph -> Distance Int
-dijkstra start end graph = (initialState start graph $ \g s -> go g s) !?? end
+-- Preconditions:
+-- 1. The start node is in the graph
+-- 2. The end node is in the graph
+-- 3. The graph is valid
+-- 4. The graph has positive distances
+dijkstra :: (String ~~ s1 ::: NodeInGraph s1 g) -> (String ~~ s2 ::: NodeInGraph s2 g) -> (Graph ~~ g ::: IsValidGraph g /\ DistancePositiveGraph g) -> Distance Int
+dijkstra start (The end) graph = (initialState start graph $ \g s -> go g s) !?? end
   where
-    go :: Graph -> DijkstraState n -> HashMap String (Distance Int)
+    go :: (Graph ~~ g ::: IsValidGraph g /\ DistancePositiveGraph g) -> DijkstraState n -> HashMap String (Distance Int)
     go g s
       | H.isEmpty (nodeQueue s) = distanceMap s
       | otherwise = go g $ step g s
 
 -- | Perform one step of Dijkstra's algorithm.
-step :: Graph -> DijkstraState n -> DijkstraState n
-step g s = name (nodeQueue s) $ \mh -> case do
+-- Preconditions:
+-- 1. The graph is valid
+-- 2. The graph has positive distances
+step :: (Graph ~~ g ::: IsValidGraph g /\ DistancePositiveGraph g) -> DijkstraState n -> DijkstraState n
+step (The g) s = name (nodeQueue s) $ \mh -> case do
   -- setup proof of non-empty heap and valid minheap
   (sizeProof) <- H.classifyHeapNotEmpty mh
   (validProof) <- H.isValidMinHeap mh
   let (((d, node)), q) = H.extractMin (mh ... (sizeProof `introAnd` validProof))
 
-  -- run the step
-  return $ case d of
-    Infinity -> s
-    Dist _ -> foldr (checkNeighbor node) (DijkstraState (node : visitedSet s) (distanceMap s) q) (neighbors node g) of
+  case d of
+    Infinity -> Nothing
+    Dist _ -> name2 node g $ \n g' -> do
+      -- setup proof of node in graph and valid graph
+      (nodeProof) <- classifyNodeInGraph n g'
+      (graphProof) <- classifyGraph g'
+
+      -- update state
+      Just $ foldr (checkNeighbor node) (DijkstraState (node : visitedSet s) (distanceMap s) q) (neighbors (n ... nodeProof) (g' ... graphProof)) of
   Nothing -> s
   Just s' -> s'
 
@@ -99,12 +130,28 @@ checkNeighbor node (neighbor, weight) s
   where
     newDist = addDist (Dist weight) (distanceMap s !?? node)
 
--- example graph
-exampleGraph :: Graph
-exampleGraph =
-  Graph
-    [ ("A", [("D", 100), ("B", 1), ("C", 20)]),
-      ("B", [("D", 50)]),
-      ("C", [("D", 20)]),
-      ("D", [])
-    ]
+--- GDP Stuff
+
+data IsValidGraph g
+
+data NodeInGraph s g
+
+data DistancePositiveGraph g
+
+-- | Classify the graph as valid.
+classifyGraph :: (Graph ~~ g) -> Maybe (Proof (IsValidGraph g))
+classifyGraph (The (Graph g)) = case all (all ((`elem` map fst g) . fst) . snd) g of
+  True -> Just axiom
+  False -> Nothing
+
+-- | Classify the node as being in the graph.
+classifyNodeInGraph :: (String ~~ s) -> (Graph ~~ g) -> Maybe (Proof (NodeInGraph s g))
+classifyNodeInGraph (The s) (The (Graph g)) = case s `elem` (map fst g) of
+  True -> Just axiom
+  False -> Nothing
+
+-- | Classify the distance as being positive in the graph.
+classifyDistancePositiveGraph :: (Graph ~~ g) -> Maybe (Proof (DistancePositiveGraph g))
+classifyDistancePositiveGraph (The (Graph g)) = case all (all ((>= 0) . snd) . snd) g of
+  True -> Just axiom
+  False -> Nothing
