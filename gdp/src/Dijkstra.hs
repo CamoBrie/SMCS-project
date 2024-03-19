@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
-module Dijkstra (Graph (..), dijkstra, classifyDistancePositiveGraph, classifyGraph, classifyNodeInGraph) where
+module Dijkstra (Graph (..), Distance (..), dijkstra, classifyDistancePositiveGraph, classifyGraph, classifyNodeInGraph) where
 
 import Data.Refined ((...), type (:::))
 import Data.The

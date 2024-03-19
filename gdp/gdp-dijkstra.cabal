@@ -16,7 +16,7 @@ library
     exposed-modules:  MinHeap
                     , Dijkstra
 
-    other-modules:    
+    other-modules:    Examples
 
     build-depends:    base ^>=4.19.0.0
                     , gdp >= 0.0.3.0
