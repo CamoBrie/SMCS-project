@@ -1,13 +1,15 @@
 module dijkstra where
 
-open import Data.Bool using (if_then_else_ ; true ; false; not)
+open import Data.Bool 
 open import Data.Nat
 open import Data.Maybe
 open import Data.Product
-open import Data.List  using (List; _∷_; [] ; filter)
+open import Data.List  using (List; _∷_; [] ; filter ; foldl)
 open import Data.Tree.AVL.Map as Map
 open import Data.Tree.AVL.Sets as Set
 open import Data.Nat.Properties using (<-strictTotalOrder)
+open import Relation.Nullary 
+-- open import Data.Bool.Properties ((T?))
 
 open import minheap as MH
 open import distance
@@ -57,15 +59,19 @@ foldNeighbor current (mkState visited distances queue) (neighborNode , cost)
 
 {-# TERMINATING #-}
 dijkstra' : Graph → DijkstraState → DijkstraState
-dijkstra' g (mkState visited distances DH.Empty) = mkState visited distances DH.Empty
-dijkstra' g (mkState visited distances (DH.SkewNode (n , dist) l r)) with (n S.∈? visited)
-... | true  = dijkstra' g (mkState visited distances (l DH.⊎ r) )
-... | false = dijkstra' g (mkState (S.insert n visited) {!   !} (DH.insert {!   !} (l DH.⊎ r) ) )
+dijkstra' g s@(mkState _ _ DH.Empty) = s
+dijkstra' g   (mkState v0 d0 q0@(DH.SkewNode (n , dist) l r)) with (n S.∈? v0) 
+... | true  = dijkstra' g (mkState v0 d0 (l DH.⊎ r) )
+... | false = dijkstra' g s1
                 where 
                       allNbs : List NodeDist
                       allNbs = fromMaybe [] (M.lookup n g)
                       unvisitedNbs : List NodeDist
-                      unvisitedNbs = filter (λ (x , _ ) → {!   !} (not (x S.∈? visited))) allNbs
+                      unvisitedNbs = filter (λ (x , _ ) → T? (not (n S.∈? v0))) allNbs
+                      v1 = S.insert n v0
+                      q1 = l DH.⊎ r
+                      s1 : DijkstraState
+                      s1 = foldl (foldNeighbor n) (mkState v1 d0 q1) unvisitedNbs 
 
 initialState : ℕ → DijkstraState
 initialState n =  mkState S.empty
@@ -73,4 +79,4 @@ initialState n =  mkState S.empty
                           (DH.singleton ((n , D 0)))
 
 -- dijkstra : Graph → ℕ → M.Map Distance
--- dijkstra g n =  dijkstra' g (initialState n)
+-- dijkstra g n =  dijkstra' g (initialState n) 
