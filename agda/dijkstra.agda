@@ -22,15 +22,16 @@ open module M = Map <-strictTotalOrder
 
 
 testGraph : List (ℕ × List NodeDist)
-testGraph = (( 1 , (2 , D 10 ) ∷ (3 , D 2 ) ∷  []) 
-            ∷ (2 , (1 , D 20 ) ∷ [] )
-            ∷ (3 , (2 , D 10 ) ∷ [] )
+testGraph = (( 1 , (2 , D 10 ) ∷ (3 , D 2 ) ∷ [] ) 
+            ∷ (2 , (1 , D 20 ) ∷ (4 , D 3 ) ∷ [] )
+            ∷ (3 , (2 , D 5 )  ∷ (4 , D 10) ∷ [] )
+            ∷ (4 , [])
             ∷ [])
 
 Graph = M.Map (List NodeDist) 
 
-test2 : Graph
-test2 = M.fromList testGraph
+test1 : Graph
+test1 = M.fromList testGraph
 
 record DijkstraState : Set where
     constructor mkState
@@ -78,5 +79,10 @@ initialState n =  mkState S.empty
                           (M.singleton n (D 0))
                           (DH.singleton ((n , D 0)))
 
--- dijkstra : Graph → ℕ → M.Map Distance
--- dijkstra g n =  dijkstra' g (initialState n) 
+dijkstra : Graph → ℕ → DijkstraState
+dijkstra g n = dijkstra' g (initialState n) 
+
+
+-- test
+example1 : M.Map Distance
+example1 = M.toList $ DijkstraState.distances (dijkstra test1 1)
