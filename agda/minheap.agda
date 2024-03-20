@@ -16,8 +16,8 @@ data SkewHeap A : Set where
 {-# TERMINATING #-}
 _⊎_ :  SkewHeap A → SkewHeap A → SkewHeap A
 h₁@(SkewNode x₁ l₁ r₁) ⊎ h₂@(SkewNode x₂ l₂ r₂) with x₁ ≤A x₂
-... | false  = SkewNode x₁ (h₂ ⊎ r₁) l₁
-... | true   = SkewNode x₂ (r₁ ⊎ h₂) l₂
+... | true  = SkewNode x₁ (h₂ ⊎ r₁) l₁
+... | false  = SkewNode x₂ (r₁ ⊎ h₂) l₂
 Empty ⊎ h = h
 h ⊎ Empty = h
 

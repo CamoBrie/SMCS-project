@@ -84,5 +84,4 @@ dijkstra g n = dijkstra' g (initialState n)
 
 
 -- test
-example1 : M.Map Distance
-example1 = M.toList $ DijkstraState.distances (dijkstra test1 1)
+example1 = M.toList (DijkstraState.distances (dijkstra test1 1))
