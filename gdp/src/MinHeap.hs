@@ -7,15 +7,14 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module MinHeap (fromList, insert, merge, extractMin, MinHeap, isEmpty, classifyHeapNotEmpty, isValidMinHeap) where
 
 import Data.Foldable (foldrM)
-import Data.Refined ((...), type (:::))
+import Data.Refined (conjure, exorcise, (...), type (:::))
 import Data.The
 import Logic.Proof (Proof, axiom)
-import Logic.Propositional (introAnd, type (/\))
+import Logic.Propositional (elimAndR, introAnd, type (/\))
 import Theory.Named (name, name2, type (~~))
 
 --- MinHeap Stuff
@@ -24,51 +23,51 @@ data MinHeap k a
   | Node a (MinHeap k a) (MinHeap k a) k
   deriving (Show)
 
+instance (Eq a, Eq k) => Eq (MinHeap k a) where
+  Leaf == Leaf = True
+  (Node a1 l1 r1 k1) == (Node a2 l2 r2 k2) = a1 == a2 && k1 == k2 && l1 == l2 && r1 == r2
+  _ == _ = False
+
 -- | Create a new heap from a list of key-value pairs.
-fromList :: (Ord k) => [(k, a)] -> Maybe (MinHeap k a)
+fromList :: (Ord k, Eq a) => [(k, a)] -> Maybe (MinHeap k a)
 fromList = foldrM f Leaf
   where
-    f :: (Ord k) => (k, a) -> (MinHeap k a) -> Maybe (MinHeap k a)
+    f :: (Ord k, Eq a) => (k, a) -> (MinHeap k a) -> Maybe (MinHeap k a)
     f v h = name h $ \h' -> do
       proof <- isValidMinHeap h'
-      insert v (h' ... proof)
+      return $ insert v (h' ... proof)
 
 -- | Insert a new key-value pair into the heap.
 -- Preconditions:
 -- 1. The heap is a valid min-heap
-insert :: (Ord k) => (k, a) -> (MinHeap k a ~~ h ::: IsValidMinHeap h) -> Maybe (MinHeap k a)
-insert (k, a) h = name (Node a Leaf Leaf k) $ \h' -> do
-  p <- isValidMinHeap h'
-  mr <- merge (h' ... p) h
-  Just $ mr
+insert :: (Ord k, Eq a) => (k, a) -> (MinHeap k a ~~ h ::: IsValidMinHeap h) -> (MinHeap k a)
+insert (k, a) h = name (Node a Leaf Leaf k) $ \h' -> merge (h' ... axiom) h
 
 -- | Merge two heaps into one.
 -- Preconditions:
 -- 1. Both heaps are valid min-heaps
-merge :: (Ord k) => (MinHeap k a ~~ h1 ::: IsValidMinHeap h1) -> (MinHeap k a ~~ h2 ::: IsValidMinHeap h2) -> Maybe (MinHeap k a)
-merge (The h) (The Leaf) = Just h
-merge (The Leaf) (The h) = Just h
+merge :: (Ord k, Eq a) => (MinHeap k a ~~ h1 ::: IsValidMinHeap h1) -> (MinHeap k a ~~ h2 ::: IsValidMinHeap h2) -> (MinHeap k a)
+merge (The h) (The Leaf) = h
+merge (The Leaf) (The h) = h
 merge h1@(The (Node a1 l1 r1 k1)) h2@(The (Node a2 l2 r2 k2))
-  | k1 <= k2 = name r1 $ \r1' -> do
-      p <- isValidMinHeap r1'
-      mr <- merge (r1' ... p) h2
-      Just $ Node a1 l1 mr k1
-  | otherwise = name r2 $ \r2' -> do
-      p <- isValidMinHeap r2'
-      mr <- merge h1 (r2' ... p)
-      Just $ Node a2 l2 mr k2
+  | k1 <= k2 = name r1 $ \r1' ->
+      let pr = subHeapValid h1 r1'
+       in Node a1 l1 (merge (r1' ... pr) h2) k1
+  | otherwise = name r2 $ \r2' ->
+      let pr = subHeapValid h2 r2'
+       in Node a2 l2 (merge h1 (r2' ... pr)) k2
+merge _ _ = error "merge: invalid heap" -- impossible
 
 -- | Extract the minimum key-value pair from the heap.
 -- Preconditions:
 -- 1. The heap is not empty
 -- 2. The heap is a valid min-heap
-extractMin :: (Ord k) => (MinHeap k a ~~ h ::: IsNotEmpty h /\ IsValidMinHeap h) -> ((k, a), MinHeap k a)
-extractMin (The (Node a l r k)) = name2 l r $ \l' r' -> case do
-  pl <- isValidMinHeap l'
-  pr <- isValidMinHeap r'
-  (merge (l' ... pl) (r' ... pr)) of
-  Just h -> ((k, a), h)
-  Nothing -> error "impossible" -- merge should always return a valid min-heap, if both inputs are valid min-heaps
+extractMin :: (Ord k, Eq a) => (MinHeap k a ~~ h ::: IsNotEmpty h /\ IsValidMinHeap h) -> ((k, a), MinHeap k a)
+extractMin h@(The (Node a l r k)) = name2 l r $ \l' r' ->
+  let pl = subHeapValid (elimAnd h) l'
+      pr = subHeapValid (elimAnd h) r'
+   in ((k, a), (merge (l' ... pl)) (r' ... pr))
+extractMin _ = error "extractMin: invalid heap" -- impossible
 
 -- | Check if the heap is empty.
 isEmpty :: MinHeap k a -> Bool
@@ -104,3 +103,18 @@ isValidMinHeap (The (Node _ l r k)) = name2 l r $ \l' r' -> do
     smallerThan k' (The (Node _ _ _ k''))
       | k' <= k'' = Just axiom
       | otherwise = Nothing
+    smallerThan _ _ = error "smallerThan: invalid heap" -- impossible
+isValidMinHeap _ = error "isValidMinHeap: invalid heap" -- impossible
+
+-- | Prove that a subheap is valid.
+subHeapValid :: (Eq a, Eq k) => (MinHeap k a ~~ h ::: IsValidMinHeap h) -> (MinHeap k a ~~ l) -> Proof (IsValidMinHeap l)
+subHeapValid (The (Node _ lh rh _)) (The l) = case lh == l of
+  True -> axiom
+  False -> case rh == l of
+    True -> axiom
+    False -> error "subHeapValid: invalid subheap" -- impossible
+subHeapValid _ _ = error "subHeapValid: invalid heap" -- impossible
+
+-- | convert big proof to small
+elimAnd :: (MinHeap k a ~~ h ::: IsNotEmpty h /\ IsValidMinHeap h) -> (MinHeap k a ~~ h ::: IsValidMinHeap h)
+elimAnd h = exorcise h ... elimAndR (conjure h)

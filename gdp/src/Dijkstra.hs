@@ -76,7 +76,7 @@ data DijkstraState n = DijkstraState
 initialState :: (String ~~ s1 ::: NodeInGraph s1 g) -> (Graph ~~ g ::: IsValidGraph g /\ DistancePositiveGraph g) -> (forall n. (Graph ~~ g ::: IsValidGraph g /\ DistancePositiveGraph g) -> DijkstraState n -> r) -> r
 initialState (The start) g f = case H.fromList [(Dist 0, start)] of
   Just q -> f g $ DijkstraState [] [(start, Dist 0)] $ q
-  Nothing -> error "Invalid initial state"
+  Nothing -> error "intialState: invalid initial heap"
 
 -- | Run Dijkstra's algorithm on a graph, starting from a given node.
 -- The result is a map of distances from the start node to all other nodes.
@@ -122,7 +122,7 @@ checkNeighbor node (neighbor, weight) s
   | neighbor `elem` visitedSet s = s
   | newDist < (distanceMap s !?? neighbor) = name (nodeQueue s) $ \nq -> case do
       proof <- H.isValidMinHeap nq
-      rq <- H.insert (newDist, neighbor) (nq ... proof)
+      let rq = H.insert (newDist, neighbor) (nq ... proof)
       return $ DijkstraState (visitedSet s) ((neighbor, newDist) : distanceMap s) rq of
       Just s' -> s'
       Nothing -> s
@@ -155,3 +155,4 @@ classifyDistancePositiveGraph :: (Graph ~~ g) -> Maybe (Proof (DistancePositiveG
 classifyDistancePositiveGraph (The (Graph g)) = case all (all ((>= 0) . snd) . snd) g of
   True -> Just axiom
   False -> Nothing
+
