@@ -16,12 +16,7 @@ where
 import Prelude hiding (head, length, null, tail,max)
 -- import Language.Haskell.Liquid.Prelude
 
-{-@ data MinHeap k a   = Leaf
-                        | Node { root  :: a
-                                , val   :: k
-                              , left  :: MinHeap k a  
-                              , right :: MinHeap k a   
-                          } @-}
+
 
 -- {-@ type VMinHeap k a X = MinHeap {v:k | X <= v} a        @-}
 
@@ -34,9 +29,6 @@ isMinHeap heap key = case heap of
   Leaf           -> True
   (Node _ k l r) -> key <= k -- && isMinHeap l k && isMinHeap r k
 
-isMinHeap Leaf _ = True
-isMinHeap (Node _ k l r) x = x >= k && isMinHeap l k && isMinHeap r k
-
 {-@ type NonEmptyMinHeap k a = {v:MinHeap k a | not (isEmpty v)} @-}
 
 {-@ measure isEmpty @-}
@@ -44,6 +36,12 @@ isEmpty :: MinHeap k a -> Bool
 isEmpty Leaf = True
 isEmpty _    = False
 
+{-@ data MinHeap k a   = Leaf
+                        | Node { root  :: a
+                                , val   :: k
+                              , left  :: MinHeap k a  
+                              , right :: MinHeap k a   
+                          } @-}
 data MinHeap k a = Leaf
                   | Node { root  :: a
                          , val   :: k
@@ -59,45 +57,16 @@ instance Foldable (MinHeap k) where
       f root `mappend`
       foldMap f right
 
--- instance (Ord k, Ord a) => Ord (MinHeap k a) where
---     Leaf <= _ = True  -- Leaf is smaller than any Node
---     _ <= Leaf = False -- Any Node is greater than Leaf
---     (Node k1 _ _ _) <= (Node k2 _ _ _) = k1 <= k2
-
--- -- Define a custom Eq instance for MinHeap
--- instance (Eq k, Eq a) => Eq (MinHeap k a) where
---     Leaf == Leaf = True
---     (Node k1 v1 _ _) == (Node k2 v2 _ _) = k1 == k2 && v1 == v2
---     _ == _ = False  -- Leaf and Node are not equal
-
 
 instance (Show a, Show k) => Show (MinHeap k a) where
   show Leaf = "Leaf"
   show (Node a _ _ k) = "Node " ++ show a ++ " " ++ show k
 
--- {-@ predicate AllValuesPresent H =
---     AllPresent (toList H)
--- @-}
-
--- {-@ predicate AllPresent X =
---       foldr (\x acc -> x `elem` (allValues acc)) true X
---   @-}
-
-
-
--- {-@ predicate LengthMatch :: [(k, a)] -> MinHeap k a -> Bool @-}
-{-@ predicate LengthMatch X H =
-      listLength X == heapLength H && isEqual X H
-    @-}
 
 {-@ isCorrect :: (Ord k, Ord a) => [(k, a)] -> MinHeap k a -> Bool @-}
 isCorrect :: (Ord k, Ord a) => [(k, a)] -> MinHeap k a -> Bool
 isCorrect x h = listLength x == heapLength h && isEqual x h
 
--- {-@ measure heapLength @-}
--- heapLength :: MinHeap k a -> Int
--- heapLength Leaf           = 0
--- heapLength (Node _ _ l r) = 1 + heapLength l + heapLength r
 
 {-@ measure listLength @-}
 listLength :: [(k, a)] -> Int
@@ -174,10 +143,10 @@ nodeHeight l r = 1 + max hl hr
 max :: Int -> Int -> Int
 max x y = if x > y then x else y
 
-{-@ outputSmaller :: (Ord k, Ord a) => xs:NonEmptyMinHeap k a -> {ys:MinHeap k a | heapLength ys < heapLength xs} @-}
-outputSmaller :: (Ord k, Ord a) => MinHeap k a -> MinHeap k a
-outputSmaller Leaf = Leaf 
-outputSmaller (Node _ _ l r) = r
+-- {-@ outputSmaller :: (Ord k, Ord a) => xs:NonEmptyMinHeap k a -> {ys:MinHeap k a | heapLength ys < heapLength xs} @-}
+-- outputSmaller :: (Ord k, Ord a) => MinHeap k a -> MinHeap k a
+-- outputSmaller Leaf = Leaf 
+-- outputSmaller (Node _ _ l r) = r
 
 -- {-@ measure ll @-}
 -- ll :: [a] -> Int

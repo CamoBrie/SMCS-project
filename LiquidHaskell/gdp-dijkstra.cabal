@@ -73,6 +73,7 @@ library
                     , unordered-containers
                     , liquidhaskell
                     , liquidhaskell-boot
+                    , hashable
     
     -- Directories containing source files.
     hs-source-dirs:   src

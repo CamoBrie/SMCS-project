@@ -10,82 +10,55 @@ module Dijkstra where
 
 import Data.Maybe (fromMaybe)
 import MinHeap as H (MinHeap, extractMin, fromList, insert)
-import qualified Data.HashMap.Strict as HM
-
--- {-@ type Nat = {v:Int | v >= 0} @-}
 
 type HashMap k v = [(k, v)]
 
+lookupHashMap :: Eq k => k -> HashMap k v -> Maybe v
+lookupHashMap _ [] = Nothing
+lookupHashMap key ((k, v):rest)
+    | key == k  = Just v
+    | otherwise = lookupHashMap key rest
+
 type HashSet a = [a]
 
--- {-@ data Distance a = Dist a | Infinity @-}
+{-@ data Distance = Dist Int | Infinity @-}
 data Distance = Dist Int | Infinity
   deriving (Show, Ord, Eq)
 
--- instance (Ord a) => Ord (Distance a) where
---   Infinity <= Infinity = True
---   Infinity <= Dist _   = False
---   Dist _   <= Infinity = True
---   Dist x   <= Dist y   = x <= y
-
--- instance Eq a => Eq (Distance a) where
---   (Dist x) == (Dist y) = x == y
---   Infinity == Infinity = True
---   _ == _ = False
-
-
--- {-@ measure isValidDistance :: ValidDistance -> Bool @-}
 {-@ measure isValidDistance @-}
 isValidDistance :: Distance -> Bool
 isValidDistance (Dist v) = v >= 0
 isValidDistance Infinity = True
 
--- {-@ measure compareValidDistances :: (Num a, Ord a) =>  ValidDistance a -> ValidDistance a -> Bool @-}
--- {-@ measure compareValidDistances @-}
--- compareValidDistances :: Distance -> Distance -> Bool
--- compareValidDistances (Dist v1) (Dist v2) = v1 >= v2
--- compareValidDistances Infinity  _         = True
--- compareValidDistances _         _         = False
-
 {-@ type ValidDistance = {v:Distance | isValidDistance v} @-}
 
--- {-@ type ValidDistance a = Distance {v:a | v >= 0 } @-}
--- {-@ type VMinHeap k a X = { v: MinHeap k a | isMinHeap v X } @-}
+elemInGraph :: String -> Graph -> Bool
+elemInGraph node graph = case lookupHashMap node (edges graph) of
+  Just _ -> True
+  Nothing -> False
 
--- {-@ addDist :: (Num a, Ord a) 
---             => x:ValidDistance a
---             -> y:ValidDistance a
---             -> {z:ValidDistance a | compareValidDistances z x && compareValidDistances z y} 
---   @-}
+elemInHashMap :: (Eq k) => k -> HashMap k v -> Bool
+elemInHashMap node hMap = case lookupHashMap node hMap of
+  Just _ -> True
+  Nothing -> False
+
 {-@ addDist :: ValidDistance -> ValidDistance -> ValidDistance @-}
 addDist :: Distance -> Distance -> Distance
 addDist (Dist x) (Dist y) = Dist (x + y)
 addDist _ _ = Infinity
 
 {-@ (!??) :: (Eq k) => HashMap k ValidDistance -> k -> ValidDistance @-}
--- {-@ (!??) :: (Eq k) => 
---     m:HashMap k ValidDistance 
---     -> k:k 
---     -> {v:ValidDistance | k `HM.member` m} 
---     @-}
+-- {-@ (!??) :: (Eq k) => m:HashMap k ValidDistance -> l:k -> {v:ValidDistance | (elemInHashMap l m)} @-}
 (!??) :: (Eq k) => HashMap k Distance -> k -> Distance
 (!??) m key = fromMaybe Infinity (lookup key m)
 
-{-@ data Graph = Graph
-      { edges :: HashMap String [(String, {x:Int | x >= 0})] }
-  @-}
+{-@ data Graph = Graph { edges :: HashMap String [(String, {x:Int | x >= 0})] } @-}
 newtype Graph = Graph
   {edges :: HashMap String [(String, Int)]}
 
--- {-@ type NodeInGraph g = {v:String | v `HM.member` (edges g)} @-}
+{-@ type NodeInGraph g = {s:String | True } @-} -- elemInGraph s g} @-} -- member v (edges g)} @-}
 
 
--- {-@ data DijkstraState g = DijkstraState
---     { visitedSet  :: HashSet (NodeInGraph g)
---     , distanceMap :: HashMap (NodeInGraph g) ValidDistance
---     , nodeQueue   :: MinHeap ValidDistance (NodeInGraph g)
---     }
---   @-}
 {-@ data DijkstraState = DijkstraState
     { visitedSet  :: HashSet String
     , distanceMap :: HashMap String ValidDistance
@@ -99,17 +72,7 @@ data DijkstraState = DijkstraState
   }
   deriving (Show)
 
--- {-@ findShortestDistance :: 
---    g:Graph
---    -> (NodeInGraph g)
---    -> (NodeInGraph g)
---    -> validDistance 
---    @-}
-{-@ findShortestDistance :: Graph
-                         -> String
-                         -> String
-                         -> ValidDistance
-   @-}
+{-@ findShortestDistance :: g:Graph -> (NodeInGraph g) -> (NodeInGraph g) -> ValidDistance @-}
 findShortestDistance :: Graph -> String -> String -> Distance
 findShortestDistance graph src dest = processQueue initialState !?? dest
   where
