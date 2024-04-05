@@ -23,11 +23,11 @@ import Prelude hiding (head, length, null, tail,max)
 {-@ type VMinHeap k a X = { v: MinHeap k a | isMinHeap v X } @-}
 
 -- {-@ inline isMinHeap @-}
-{-@ isMinHeap :: (Ord k) => MinHeap k a -> k -> Bool @-}
+{-@ measure isMinHeap :: (Ord k) => MinHeap k a -> k -> Bool @-}
 isMinHeap :: Ord k => MinHeap k a -> k -> Bool
 isMinHeap heap key = case heap of
   Leaf           -> True
-  (Node _ k l r) -> key <= k -- && isMinHeap l k && isMinHeap r k
+  (Node _ k l r) -> key <= k && isMinHeap l k && isMinHeap r k
 
 {-@ type NonEmptyMinHeap k a = {v:MinHeap k a | not (isEmpty v)} @-}
 
@@ -39,8 +39,8 @@ isEmpty _    = False
 {-@ data MinHeap k a   = Leaf
                         | Node { root  :: a
                                 , val   :: k
-                              , left  :: MinHeap k a  
-                              , right :: MinHeap k a   
+                              , left  :: MinHeap k a 
+                              , right :: MinHeap k a  
                           } @-}
 data MinHeap k a = Leaf
                   | Node { root  :: a
@@ -63,7 +63,7 @@ instance (Show a, Show k) => Show (MinHeap k a) where
   show (Node a _ _ k) = "Node " ++ show a ++ " " ++ show k
 
 
-{-@ isCorrect :: (Ord k, Ord a) => [(k, a)] -> MinHeap k a -> Bool @-}
+{-@ isCorrect :: (Ord k, Ord a) => [(k, a)] -> MinHeap k a-> Bool @-}
 isCorrect :: (Ord k, Ord a) => [(k, a)] -> MinHeap k a -> Bool
 isCorrect x h = listLength x == heapLength h && isEqual x h
 

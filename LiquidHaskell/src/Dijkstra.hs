@@ -32,11 +32,13 @@ isValidDistance Infinity = True
 
 {-@ type ValidDistance = {v:Distance | isValidDistance v} @-}
 
+{-@ measure elemInGraph :: String -> Graph -> Bool @-}
 elemInGraph :: String -> Graph -> Bool
 elemInGraph node graph = case lookupHashMap node (edges graph) of
   Just _ -> True
   Nothing -> False
 
+{-@ measure elemInHashMap :: (Eq k) => k -> HashMap k v -> Bool @-}
 elemInHashMap :: (Eq k) => k -> HashMap k v -> Bool
 elemInHashMap node hMap = case lookupHashMap node hMap of
   Just _ -> True
@@ -47,8 +49,8 @@ addDist :: Distance -> Distance -> Distance
 addDist (Dist x) (Dist y) = Dist (x + y)
 addDist _ _ = Infinity
 
-{-@ (!??) :: (Eq k) => HashMap k ValidDistance -> k -> ValidDistance @-}
--- {-@ (!??) :: (Eq k) => m:HashMap k ValidDistance -> l:k -> {v:ValidDistance | (elemInHashMap l m)} @-}
+
+{-@ (!??) :: (Eq k) => m:HashMap k ValidDistance -> l:k -> {v:ValidDistance | (elemInHashMap l m)} @-}
 (!??) :: (Eq k) => HashMap k Distance -> k -> Distance
 (!??) m key = fromMaybe Infinity (lookup key m)
 
@@ -56,7 +58,7 @@ addDist _ _ = Infinity
 newtype Graph = Graph
   {edges :: HashMap String [(String, Int)]}
 
-{-@ type NodeInGraph g = {s:String | True } @-} -- elemInGraph s g} @-} -- member v (edges g)} @-}
+{-@ type NodeInGraph g = {s:String | elemInGraph s g} @-}
 
 
 {-@ data DijkstraState = DijkstraState
@@ -118,51 +120,3 @@ graph1 =
       ("C", [("D", 20)]),
       ("D", [])
     ]
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
--- module Blank where
-
--- {-@ type IsValidDist = {v: Int | v >= 0 } @-}
-
--- {-@ addDist :: x:IsValidDist -> y:IsValidDist -> {z:IsValidDist | z == x + y } @-}
--- addDist :: Int -> Int -> Int
--- addDist x y = x + y
-
-
--- data Distance = Dist Int | Infinity
-
--- {-@ measure isValid :: Distance -> Bool @-}
--- isValid :: Distance -> Bool 
--- isValid (Dist d) = d >= 0
--- isValid Infinity = True
-
--- {-@ type IsValidDist = {v: Distance | isValid v } @-}
-
--- {-@ measure compareValidDistances :: Distance  -> Distance  -> Bool @-}
--- compareValidDistances ::  Distance  -> Distance  -> Bool
--- compareValidDistances (Dist v1) (Dist v2) = v1 >= v2
--- compareValidDistances Infinity  _         = True
--- compareValidDistances _         Infinity  = True
--- compareValidDistances _         _         = False
-
--- {-@ predicate IsEqual Z X Y = compareValidDistances Z X && compareValidDistances Z Y @-}
-
--- {-@ addDist :: x:IsValidDist -> y:IsValidDist -> {z:IsValidDist | IsEqual z x y } @-}
--- addDist :: Distance -> Distance -> Distance
--- addDist (Dist x) (Dist y) = Dist (x + y)
--- addDist _       _       = Infinity
-
--- {-@ invariant {d:Distance | isValid d <=> (d == Infinity || distanceValue d >= 0)} @-}
-
