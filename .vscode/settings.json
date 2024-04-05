@@ -1,0 +1,23 @@
+{
+  "cSpell.words": ["foldr"],
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#63c59c",
+    "activityBar.background": "#63c59c",
+    "activityBar.foreground": "#15202b",
+    "activityBar.inactiveForeground": "#15202b99",
+    "activityBarBadge.background": "#985cc3",
+    "activityBarBadge.foreground": "#e7e7e7",
+    "commandCenter.border": "#15202b99",
+    "sash.hoverBorder": "#63c59c",
+    "statusBar.background": "#42b384",
+    "statusBar.foreground": "#15202b",
+    "statusBarItem.hoverBackground": "#348e68",
+    "statusBarItem.remoteBackground": "#42b384",
+    "statusBarItem.remoteForeground": "#15202b",
+    "titleBar.activeBackground": "#42b384",
+    "titleBar.activeForeground": "#15202b",
+    "titleBar.inactiveBackground": "#42b38499",
+    "titleBar.inactiveForeground": "#15202b99"
+  },
+  "peacock.color": "#42b384"
+}

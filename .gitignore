@@ -1,3 +1,5 @@
 dist-newstyle
+.liquid
+.vscode
 *.agdai
 MALonzo
