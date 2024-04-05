@@ -34,20 +34,22 @@ isValidDistance Infinity = True
 
 {-@ measure elemInGraph :: String -> Graph -> Bool @-}
 elemInGraph :: String -> Graph -> Bool
-elemInGraph node graph = case lookupHashMap node (edges graph) of
-  Just _ -> True
-  Nothing -> False
+elemInGraph node graph = 
+  case lookupHashMap node (edges graph) of
+    Just _  -> True
+    Nothing -> False
 
 {-@ measure elemInHashMap :: (Eq k) => k -> HashMap k v -> Bool @-}
 elemInHashMap :: (Eq k) => k -> HashMap k v -> Bool
-elemInHashMap node hMap = case lookupHashMap node hMap of
-  Just _ -> True
-  Nothing -> False
+elemInHashMap node hMap = 
+  case lookupHashMap node hMap of
+    Just _ -> True
+    Nothing -> False
 
 {-@ addDist :: ValidDistance -> ValidDistance -> ValidDistance @-}
 addDist :: Distance -> Distance -> Distance
 addDist (Dist x) (Dist y) = Dist (x + y)
-addDist _ _ = Infinity
+addDist _        _        = Infinity
 
 
 {-@ (!??) :: (Eq k) => m:HashMap k ValidDistance -> l:k -> {v:ValidDistance | (elemInHashMap l m)} @-}

@@ -14,15 +14,9 @@ where
 -- https://github.com/nytr0gen/hs-min-heap/blob/master/MinHeap.hs
 
 import Prelude hiding (head, length, null, tail,max)
--- import Language.Haskell.Liquid.Prelude
-
-
-
--- {-@ type VMinHeap k a X = MinHeap {v:k | X <= v} a        @-}
 
 {-@ type VMinHeap k a X = { v: MinHeap k a | isMinHeap v X } @-}
 
--- {-@ inline isMinHeap @-}
 {-@ measure isMinHeap :: (Ord k) => MinHeap k a -> k -> Bool @-}
 isMinHeap :: Ord k => MinHeap k a -> k -> Bool
 isMinHeap heap key = case heap of
@@ -36,12 +30,20 @@ isEmpty :: MinHeap k a -> Bool
 isEmpty Leaf = True
 isEmpty _    = False
 
-{-@ data MinHeap k a   = Leaf
-                        | Node { root  :: a
-                                , val   :: k
-                              , left  :: MinHeap k a 
-                              , right :: MinHeap k a  
-                          } @-}
+-- {-@ data MinHeap k a = Leaf
+--                      | Node { root  :: a
+--                             , val   :: k
+--                             , left  :: VMinHeap k a val  
+--                             , right :: VMinHeap k a val  
+--                             } 
+-- @-}
+{-@ data MinHeap k a = Leaf
+                     | Node { root  :: a
+                            , val   :: k
+                            , left  :: MinHeap k a 
+                            , right :: MinHeap k a 
+                            } 
+  @-}
 data MinHeap k a = Leaf
                   | Node { root  :: a
                          , val   :: k
@@ -59,34 +61,33 @@ instance Foldable (MinHeap k) where
 
 
 instance (Show a, Show k) => Show (MinHeap k a) where
-  show Leaf = "Leaf"
+  show Leaf           = "Leaf"
   show (Node a _ _ k) = "Node " ++ show a ++ " " ++ show k
 
 
-{-@ isCorrect :: (Ord k, Ord a) => [(k, a)] -> MinHeap k a-> Bool @-}
+{-@ measure isCorrect :: (Ord k, Ord a) => [(k, a)] -> MinHeap k a-> Bool @-}
 isCorrect :: (Ord k, Ord a) => [(k, a)] -> MinHeap k a -> Bool
 isCorrect x h = listLength x == heapLength h && isEqual x h
 
 
-{-@ measure listLength @-}
-listLength :: [(k, a)] -> Int
+{-@ measure listLength :: (Ord k, Ord a) => [(k, a)] -> Int @-}
+listLength :: (Ord k, Ord a) => [(k, a)] -> Int
 listLength []     = 0
 listLength (_:xs) = 1 + listLength xs
 
-toList :: MinHeap k a -> [(k, a)]
-toList Leaf = []
+{-@ measure toList :: (Ord k, Ord a) => MinHeap k a -> [(k, a)] @-}
+toList :: (Ord k, Ord a) => MinHeap k a -> [(k, a)]
+toList Leaf           = []
 toList (Node a k l r) = toList l ++ [(k, a)] ++ toList r
 
-isEqual :: (Eq k, Eq a) => [(k,a)] -> MinHeap k a -> Bool
+{-@ measure isEqual :: (Ord k, Ord a) => [(k,a)] -> MinHeap k a -> Bool @-}
+isEqual :: (Ord k, Ord a) => [(k,a)] -> MinHeap k a -> Bool
 isEqual xs heap = foldr (\x acc -> x `elem` xs && acc) True (toList heap)
 
 areElements :: (Ord k, Ord a) => MinHeap k a -> MinHeap k a -> Bool
 areElements h1 h2 = foldr (\x acc -> x `elem` h2 && acc) True h1
 
--- {-@ fromList :: (Ord k,Ord a) 
---              => xs:[(k, a)] 
---              -> {v:MinHeap k a | isCorrect xs v} 
---   @-} 
+{-@ fromList :: (Ord k,Ord a) => xs:[(k, a)] -> {v:MinHeap k a | True } @-} -- isCorrect xs v} @-} 
 fromList :: (Ord k, Ord a) => [(k, a)] -> MinHeap k a
 fromList = foldr insert Leaf
 
@@ -111,7 +112,7 @@ merge :: (Ord k, Ord a) => MinHeap k a -> MinHeap k a -> MinHeap k a
 merge h Leaf = h
 merge Leaf h = h
 merge h1@(Node a1 k1 l1 r1 ) h2@(Node a2 k2 l2 r2 )
-  | k1 <= k2 = Node a1 k1 (merge h2 r1) l1 
+  | k1 <= k2  = Node a1 k1 (merge h2 r1) l1 
   | otherwise = Node a2 k2 (merge h1 r2) l2
 
 -- {-@ areElements :: (Ord k, Ord a) => MinHeap k a -> MinHeap k a -> Bool  @-}
@@ -127,13 +128,14 @@ merge h1@(Node a1 k1 l1 r1 ) h2@(Node a2 k2 l2 r2 )
 -- isSmaller x y = heapLength x < heapLength y
 
 {-@ lazy heapLength @-}
-{-@ measure heapLength @-}
+{-@ measure heapLength :: MinHeap k a -> Int @-}
 heapLength :: MinHeap k a -> Int
 heapLength Leaf           = 0
 heapLength (Node _ _ l r) = 1 + nodeHeight l r
 
 {-@ lazy nodeHeight @-}
-{-@ inline nodeHeight @-}
+{-@ measure nodeHeight :: MinHeap k a -> MinHeap k a -> Int @-}
+nodeHeight :: MinHeap k a -> MinHeap k a -> Int
 nodeHeight l r = 1 + max hl hr
   where
     hl         = heapLength l
@@ -148,21 +150,11 @@ max x y = if x > y then x else y
 -- outputSmaller Leaf = Leaf 
 -- outputSmaller (Node _ _ l r) = r
 
--- {-@ measure ll @-}
--- ll :: [a] -> Int
--- ll []     = 0
--- ll (_:xs) = 1 + ll xs
-
--- {-@ outSmaller :: {xs:[a] | ll xs > 0} -> {ys:[a] | ll ys < ll xs} @-}
--- outSmaller :: [a] -> [a]
--- outSmaller [] = []
--- outSmaller (_:xs) = xs
-
-
 -- {-@ extractMin :: (Ord k, Ord a) 
 --                => h:NonEmptyMinHeap k a 
---                -> Maybe ((k,a),{v: MinHeap k a | heapLength v < heapLength h}) 
+--                -> Maybe ((k,a),{v: MinHeap k a | heapLength v <= heapLength h}) 
 --   @-}
+{-@ extractMin :: (Ord k, Ord a) => h:NonEmptyMinHeap k a -> Maybe ((k,a),MinHeap k a) @-}
 extractMin :: (Ord k, Ord a) => MinHeap k a -> Maybe ((k, a), MinHeap k a)
-extractMin Leaf = Nothing
+extractMin Leaf           = Nothing
 extractMin (Node a k l r) = Just ((k, a), merge l r)
